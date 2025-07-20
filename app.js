@@ -1,4 +1,4 @@
-const ADMIN_PASSWORD_HASH = "b3d39982ff4ac118ca1dbe9234b4096eab5d4bca88840794b9fc5619157b2a53";
+const ADMIN_PASSWORD_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
 let customers = [];
 
 function sha256(text) {
@@ -12,8 +12,6 @@ function sha256(text) {
 async function login() {
   const pass = document.getElementById("password").value;
   const hash = await sha256(pass);
-  console.log("Entered Hash:", hash);
-  console.log("Expected Hash:", ADMIN_PASSWORD_HASH);
   if (hash === ADMIN_PASSWORD_HASH) {
     document.getElementById("login").classList.add("hidden");
     document.getElementById("app").classList.remove("hidden");
