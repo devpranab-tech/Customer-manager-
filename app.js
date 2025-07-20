@@ -12,6 +12,8 @@ function sha256(text) {
 async function login() {
   const pass = document.getElementById("password").value;
   const hash = await sha256(pass);
+  console.log("Entered Hash:", hash);
+  console.log("Expected Hash:", ADMIN_PASSWORD_HASH);
   if (hash === ADMIN_PASSWORD_HASH) {
     document.getElementById("login").classList.add("hidden");
     document.getElementById("app").classList.remove("hidden");
