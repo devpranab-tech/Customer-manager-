@@ -8,39 +8,43 @@
   <meta name="theme-color" content="#121212" />
   <link rel="icon" href="Icon-192.png">
   <style>
-    body { font-family: sans-serif; background: #121212; color: #fff; margin: 0; padding: 1rem; }
-    .dark-mode { background: #121212; color: #fff; }
-    .light-mode { background: #f0f0f0; color: #000; }
-    input, button, textarea, select { margin: 0.5rem 0; display: block; width: 100%; padding: 0.5rem; border-radius: 0.25rem; }
-    .customer { border: 1px solid #444; padding: 1rem; margin: 0.5rem 0; border-radius: 0.5rem; background: #1e1e1e; }
-    #dashboard { margin: 1rem 0; padding: 1rem; background: #222; border-radius: 0.5rem; }
+    body { font-family: Arial; background: #121212; color: white; margin: 0; padding: 10px; }
     .hidden { display: none; }
+    .dark-mode { background: #121212; color: white; }
+    input, button, textarea, select { margin: 5px; padding: 8px; }
+    .customer-card { border: 1px solid #444; margin: 5px 0; padding: 10px; border-radius: 10px; background: #1e1e1e; }
   </style>
 </head>
 <body>
-  <h2>Customer Manager</h2>
-  <div id="login">
-    <input type="password" id="password" placeholder="Enter Admin Password"/>
-    <button onclick="login()">Login</button>
+  <div id="login-section">
+    <h2>Login</h2>
+    <input type="password" id="password" placeholder="Enter Password" />
+    <button onclick="checkLogin()">Login</button>
   </div>
+
   <div id="app" class="hidden">
-    <button onclick="toggleTheme()">Toggle Dark Mode</button>
+    <h2>Customer Manager</h2>
+    <button onclick="toggleDarkMode()">🌙 Toggle Dark Mode</button>
+    <br><br>
+
+    <div>
+      <input id="name" placeholder="Customer Name" />
+      <input id="phone" placeholder="Phone Number" />
+      <input type="number" id="credit" placeholder="Credit Amount" />
+      <textarea id="notes" placeholder="Notes (optional)"></textarea>
+      <button onclick="addCustomer()">Add/Update Customer</button>
+    </div>
+
+    <hr>
+    <input id="search" placeholder="Search by name or date..." oninput="searchCustomers()" />
+    <button onclick="exportJSON()">📤 Export JSON</button>
+    <input type="file" id="fileInput" onchange="importJSON()" />
+    <button onclick="exportPDF()">📄 Export PDF</button>
+
     <div id="dashboard"></div>
-    <input type="text" id="name" placeholder="Customer Name" />
-    <input type="text" id="phone" placeholder="Phone Number" />
-    <input type="number" id="credit" placeholder="Credit Amount" />
-    <textarea id="note" placeholder="Notes (optional)"></textarea>
-    <button onclick="addCustomer()">Add / Update Customer</button>
-    <input type="text" id="search" placeholder="Search by name or phone" oninput="renderCustomers()" />
-    <input type="date" id="filterDate" onchange="renderCustomers()" />
-    <input type="month" id="filterMonth" onchange="renderCustomers()" />
-    <button onclick="resetFilters()">Reset Filters</button>
-    <button onclick="exportJSON()">Export JSON</button>
-    <button onclick="importJSON()">Import JSON</button>
-    <button onclick="exportPDF()">Export PDF</button>
-    <input type="file" id="importFile" class="hidden" accept=".json" />
-    <div id="customers"></div>
+    <div id="customer-list"></div>
   </div>
+
   <script src="app.js"></script>
 </body>
 </html>

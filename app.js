@@ -1,104 +1,110 @@
-const ADMIN_PASSWORD_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
-let customers = [];
+const correctPassword = "1234";
 
-function sha256(text) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(text);
-  return crypto.subtle.digest("SHA-256", data).then(buf => {
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-  });
-}
-
-async function login() {
-  const pass = document.getElementById("password").value;
-  const hash = await sha256(pass);
-  if (hash === ADMIN_PASSWORD_HASH) {
-    document.getElementById("login").classList.add("hidden");
-    document.getElementById("app").classList.remove("hidden");
+function checkLogin() {
+  const input = document.getElementById('password').value;
+  if (input === correctPassword) {
+    document.getElementById('login-section').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
     loadCustomers();
-    backupAlert();
+    checkBackupReminder();
   } else {
     alert("Incorrect password");
   }
 }
 
-function saveCustomers() {
-  localStorage.setItem("customers", JSON.stringify(customers));
-  localStorage.setItem("lastBackup", Date.now());
-  renderCustomers();
+function getCustomers() {
+  return JSON.parse(localStorage.getItem("customers") || "[]");
 }
 
-function loadCustomers() {
-  const data = localStorage.getItem("customers");
-  customers = data ? JSON.parse(data) : [];
-  renderCustomers();
+function saveCustomers(data) {
+  localStorage.setItem("customers", JSON.stringify(data));
+  localStorage.setItem("lastBackup", new Date().toISOString());
 }
 
 function addCustomer() {
   const name = document.getElementById("name").value.trim();
   const phone = document.getElementById("phone").value.trim();
-  const credit = parseFloat(document.getElementById("credit").value) || 0;
-  const note = document.getElementById("note").value.trim();
-  if (!name || !phone) return alert("Name and phone required");
+  const credit = parseFloat(document.getElementById("credit").value);
+  const notes = document.getElementById("notes").value.trim();
+  const date = new Date().toLocaleDateString();
 
-  const date = new Date().toISOString().split("T")[0];
-  const existing = customers.find(c => c.name === name && c.phone === phone);
+  if (!name || isNaN(credit)) return alert("Enter valid name and credit");
+
+  const customers = getCustomers();
+  const existing = customers.find(c => c.name === name);
+
   if (existing) {
     existing.credit += credit;
-    existing.note = note;
     existing.date = date;
+    existing.notes = notes;
+    existing.phone = phone;
   } else {
-    customers.push({ name, phone, credit, note, date });
+    customers.push({ name, phone, credit, notes, date });
   }
 
-  document.getElementById("name").value = "";
-  document.getElementById("phone").value = "";
-  document.getElementById("credit").value = "";
-  document.getElementById("note").value = "";
-  saveCustomers();
+  saveCustomers(customers);
+  loadCustomers();
 }
 
-function renderCustomers() {
-  const search = document.getElementById("search").value.toLowerCase();
-  const filterDate = document.getElementById("filterDate").value;
-  const filterMonth = document.getElementById("filterMonth").value;
-  const container = document.getElementById("customers");
+function loadCustomers() {
+  const customers = getCustomers();
+  const container = document.getElementById("customer-list");
+  const dashboard = document.getElementById("dashboard");
   container.innerHTML = "";
 
-  let totalCredit = 0;
-  let filtered = customers.filter(c => {
-    if (search && !c.name.toLowerCase().includes(search) && !c.phone.includes(search)) return false;
-    if (filterDate && c.date !== filterDate) return false;
-    if (filterMonth && !c.date.startsWith(filterMonth)) return false;
-    return true;
+  let total = 0, monthTotal = 0;
+  const now = new Date();
+  customers.forEach((c, i) => {
+    total += c.credit;
+    const cDate = new Date(c.date);
+    if (cDate.getMonth() === now.getMonth() && cDate.getFullYear() === now.getFullYear())
+      monthTotal += c.credit;
+
+    container.innerHTML += `
+      <div class="customer-card">
+        <strong>${c.name}</strong> (${c.phone})<br>
+        Credit: ₹${c.credit}<br>
+        Notes: ${c.notes}<br>
+        Date: ${c.date}<br>
+        <button onclick="deleteCustomer(${i})">🗑 Delete</button>
+      </div>`;
   });
 
-  filtered.forEach((c, i) => {
-    totalCredit += c.credit;
-    const div = document.createElement("div");
-    div.className = "customer";
-    div.innerHTML = `<b>${c.name}</b> (${c.phone})<br/>Credit: ₹${c.credit}<br/>Note: ${c.note}<br/>Date: ${c.date}
-      <button onclick="deleteCustomer(${i})">Delete</button>`;
-    container.appendChild(div);
-  });
-
-  document.getElementById("dashboard").innerHTML = `
-    <p><b>Total Customers:</b> ${customers.length}</p>
-    <p><b>Total Credit:</b> ₹${customers.reduce((t, c) => t + c.credit, 0)}</p>
-    <p><b>This Month's Credit:</b> ₹${customers.filter(c => c.date.startsWith(new Date().toISOString().slice(0, 7)))
-    .reduce((t, c) => t + c.credit, 0)}</p>
-  `;
+  dashboard.innerHTML = `<h3>📊 Summary</h3>
+    Total Customers: ${customers.length}<br>
+    Total Credit: ₹${total}<br>
+    This Month: ₹${monthTotal}<br>`;
 }
 
 function deleteCustomer(index) {
-  if (confirm("Delete this customer?")) {
-    customers.splice(index, 1);
-    saveCustomers();
-  }
+  const customers = getCustomers();
+  customers.splice(index, 1);
+  saveCustomers(customers);
+  loadCustomers();
+}
+
+function searchCustomers() {
+  const term = document.getElementById("search").value.toLowerCase();
+  const customers = getCustomers();
+  const filtered = customers.filter(c =>
+    c.name.toLowerCase().includes(term) || c.date.includes(term));
+  const container = document.getElementById("customer-list");
+  container.innerHTML = "";
+  filtered.forEach((c, i) => {
+    container.innerHTML += `
+      <div class="customer-card">
+        <strong>${c.name}</strong> (${c.phone})<br>
+        Credit: ₹${c.credit}<br>
+        Notes: ${c.notes}<br>
+        Date: ${c.date}<br>
+        <button onclick="deleteCustomer(${i})">🗑 Delete</button>
+      </div>`;
+  });
 }
 
 function exportJSON() {
-  const blob = new Blob([JSON.stringify(customers)], { type: "application/json" });
+  const dataStr = JSON.stringify(getCustomers(), null, 2);
+  const blob = new Blob([dataStr], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "customers.json";
@@ -106,30 +112,28 @@ function exportJSON() {
 }
 
 function importJSON() {
-  document.getElementById("importFile").click();
-}
-
-document.getElementById("importFile").addEventListener("change", e => {
-  const file = e.target.files[0];
+  const file = document.getElementById("fileInput").files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const data = JSON.parse(reader.result);
-      customers = data;
-      saveCustomers();
-    } catch (e) {
+      const imported = JSON.parse(reader.result);
+      saveCustomers(imported);
+      loadCustomers();
+    } catch {
       alert("Invalid JSON");
     }
   };
   reader.readAsText(file);
-});
+}
 
 function exportPDF() {
+  const customers = getCustomers();
   let text = "Customer Report\n\n";
   customers.forEach(c => {
-    text += `${c.name} (${c.phone}) - ₹${c.credit}\nNote: ${c.note}\nDate: ${c.date}\n\n`;
+    text += `Name: ${c.name}\nPhone: ${c.phone}\nCredit: ₹${c.credit}\nNotes: ${c.notes}\nDate: ${c.date}\n\n`;
   });
+
   const blob = new Blob([text], { type: "application/pdf" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -137,25 +141,16 @@ function exportPDF() {
   a.click();
 }
 
-function resetFilters() {
-  document.getElementById("filterDate").value = "";
-  document.getElementById("filterMonth").value = "";
-  document.getElementById("search").value = "";
-  renderCustomers();
-}
-
-function toggleTheme() {
+function toggleDarkMode() {
   document.body.classList.toggle("dark-mode");
-  document.body.classList.toggle("light-mode");
 }
 
-function backupAlert() {
+function checkBackupReminder() {
   const last = localStorage.getItem("lastBackup");
-  if (last && Date.now() - parseInt(last) > 7 * 86400000) {
-    alert("Reminder: Please export backup (7 days passed)");
+  if (last) {
+    const diff = (Date.now() - new Date(last).getTime()) / (1000 * 60 * 60 * 24);
+    if (diff >= 7) {
+      alert("⚠️ Reminder: Please export your data. Last backup was over 7 days ago.");
+    }
   }
-}
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
 }
