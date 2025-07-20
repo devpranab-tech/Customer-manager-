@@ -8,178 +8,39 @@
   <meta name="theme-color" content="#121212" />
   <link rel="icon" href="Icon-192.png">
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 0; background: #121212; color: white; }
-    .container { padding: 20px; }
+    body { font-family: sans-serif; background: #121212; color: #fff; margin: 0; padding: 1rem; }
+    .dark-mode { background: #121212; color: #fff; }
+    .light-mode { background: #f0f0f0; color: #000; }
+    input, button, textarea, select { margin: 0.5rem 0; display: block; width: 100%; padding: 0.5rem; border-radius: 0.25rem; }
+    .customer { border: 1px solid #444; padding: 1rem; margin: 0.5rem 0; border-radius: 0.5rem; background: #1e1e1e; }
+    #dashboard { margin: 1rem 0; padding: 1rem; background: #222; border-radius: 0.5rem; }
     .hidden { display: none; }
-    input, button, select, textarea { margin: 5px; padding: 10px; }
-    .dark { background: #121212; color: white; }
-    .light { background: white; color: black; }
-    .card { background: #1f1f1f; padding: 10px; margin: 10px 0; border-radius: 10px; box-shadow: 0 0 10px #00000070; }
   </style>
 </head>
 <body>
+  <h2>Customer Manager</h2>
   <div id="login">
-    <div class="container">
-      <h2>Login</h2>
-      <input type="password" id="passwordInput" placeholder="Enter Password" />
-      <button onclick="login()">Login</button>
-    </div>
+    <input type="password" id="password" placeholder="Enter Admin Password"/>
+    <button onclick="login()">Login</button>
   </div>
-
   <div id="app" class="hidden">
-    <div class="container">
-      <h2>Customer Manager</h2>
-      <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
-      <div>
-        <input id="name" placeholder="Customer Name" />
-        <input id="credit" type="number" placeholder="Credit Amount" />
-        <textarea id="notes" placeholder="Notes (optional)"></textarea>
-        <button onclick="addCustomer()">Add/Update</button>
-        <button onclick="exportJSON()">Export JSON</button>
-        <input type="file" id="importFile" onchange="importJSON()" />
-        <button onclick="exportPDF()">Export PDF</button>
-        <input type="text" id="search" oninput="renderCustomers()" placeholder="Search by name" />
-        <input type="month" id="monthFilter" onchange="renderCustomers()" />
-        <button onclick="clearFilter()">Clear Filters</button>
-      </div>
-
-      <div id="dashboard">
-        <p>Total Customers: <span id="totalCustomers">0</span></p>
-        <p>Total Credit: ₹<span id="totalCredit">0</span></p>
-        <p>This Month's Credit: ₹<span id="monthCredit">0</span></p>
-      </div>
-
-      <div id="customers"></div>
-    </div>
+    <button onclick="toggleTheme()">Toggle Dark Mode</button>
+    <div id="dashboard"></div>
+    <input type="text" id="name" placeholder="Customer Name" />
+    <input type="text" id="phone" placeholder="Phone Number" />
+    <input type="number" id="credit" placeholder="Credit Amount" />
+    <textarea id="note" placeholder="Notes (optional)"></textarea>
+    <button onclick="addCustomer()">Add / Update Customer</button>
+    <input type="text" id="search" placeholder="Search by name or phone" oninput="renderCustomers()" />
+    <input type="date" id="filterDate" onchange="renderCustomers()" />
+    <input type="month" id="filterMonth" onchange="renderCustomers()" />
+    <button onclick="resetFilters()">Reset Filters</button>
+    <button onclick="exportJSON()">Export JSON</button>
+    <button onclick="importJSON()">Import JSON</button>
+    <button onclick="exportPDF()">Export PDF</button>
+    <input type="file" id="importFile" class="hidden" accept=".json" />
+    <div id="customers"></div>
   </div>
-
-  <script>
-    const correctPassword = "HitoHitonomi123";
-
-    function login() {
-      const input = document.getElementById("passwordInput").value.trim();
-      if (input === correctPassword) {
-        document.getElementById("login").classList.add("hidden");
-        document.getElementById("app").classList.remove("hidden");
-        renderCustomers();
-        checkBackupReminder();
-      } else {
-        alert("Wrong Password");
-      }
-    }
-
-    function toggleDarkMode() {
-      document.body.classList.toggle("light");
-    }
-
-    function getCustomers() {
-      return JSON.parse(localStorage.getItem("customers") || "[]");
-    }
-
-    function saveCustomers(data) {
-      localStorage.setItem("customers", JSON.stringify(data));
-      localStorage.setItem("lastBackup", Date.now());
-    }
-
-    function addCustomer() {
-      const name = document.getElementById("name").value.trim();
-      const credit = parseFloat(document.getElementById("credit").value);
-      const notes = document.getElementById("notes").value.trim();
-      if (!name || isNaN(credit)) return alert("Invalid data");
-      const customers = getCustomers();
-      const today = new Date().toISOString().split("T")[0];
-      const existing = customers.find(c => c.name.toLowerCase() === name.toLowerCase());
-      if (existing) {
-        existing.credit += credit;
-        existing.notes = notes;
-        existing.date = today;
-      } else {
-        customers.push({ name, credit, notes, date: today });
-      }
-      saveCustomers(customers);
-      renderCustomers();
-    }
-
-    function deleteCustomer(index) {
-      const customers = getCustomers();
-      customers.splice(index, 1);
-      saveCustomers(customers);
-      renderCustomers();
-    }
-
-    function renderCustomers() {
-      const customers = getCustomers();
-      const search = document.getElementById("search").value.toLowerCase();
-      const month = document.getElementById("monthFilter").value;
-      let filtered = customers.filter(c => c.name.toLowerCase().includes(search));
-      if (month) filtered = filtered.filter(c => c.date.startsWith(month));
-      const list = document.getElementById("customers");
-      list.innerHTML = "";
-      let totalCredit = 0, monthCredit = 0;
-      filtered.forEach((c, i) => {
-        totalCredit += c.credit;
-        if (month && c.date.startsWith(month)) monthCredit += c.credit;
-        const div = document.createElement("div");
-        div.className = "card";
-        div.innerHTML = `
-          <b>${c.name}</b><br/>
-          Credit: ₹${c.credit}<br/>
-          Date: ${c.date}<br/>
-          Notes: ${c.notes || "None"}<br/>
-          <button onclick="deleteCustomer(${i})">Delete</button>
-        `;
-        list.appendChild(div);
-      });
-      document.getElementById("totalCustomers").innerText = filtered.length;
-      document.getElementById("totalCredit").innerText = totalCredit;
-      document.getElementById("monthCredit").innerText = monthCredit;
-    }
-
-    function exportJSON() {
-      const blob = new Blob([JSON.stringify(getCustomers())], { type: "application/json" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "customers.json";
-      link.click();
-    }
-
-    function importJSON() {
-      const file = document.getElementById("importFile").files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const data = JSON.parse(reader.result);
-        saveCustomers(data);
-        renderCustomers();
-      };
-      reader.readAsText(file);
-    }
-
-    function exportPDF() {
-      const list = document.getElementById("customers").innerText;
-      const blob = new Blob([list], { type: "application/pdf" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "customers.pdf";
-      link.click();
-    }
-
-    function checkBackupReminder() {
-      const last = parseInt(localStorage.getItem("lastBackup") || "0");
-      if (Date.now() - last > 7 * 24 * 60 * 60 * 1000) {
-        alert("Reminder: Please backup your data!");
-      }
-    }
-
-    function clearFilter() {
-      document.getElementById("monthFilter").value = "";
-      document.getElementById("search").value = "";
-      renderCustomers();
-    }
-
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("sw.js");
-    }
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>

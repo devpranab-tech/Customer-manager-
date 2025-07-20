@@ -1,44 +1,11 @@
-const CACHE_NAME = "customer-manager-cache-v1";
-const urlsToCache = [
-  "index.html",
-  "manifest.json",
-  "Icon-192.png",
-  "Icon-512.png"
-];
-
-// Install: cache app files
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(urlsToCache);
-    })
-  );
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open('customer-manager-v1').then(cache => {
+    return cache.addAll(['index.html', 'app.js', 'manifest.json']);
+  }));
 });
 
-// Activate: cleanup old caches
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
-      );
-    })
-  );
-});
-
-// Fetch: serve from cache if offline
-self.addEventListener("fetch", (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    }).catch(() => {
-      return new Response("You're offline. Please connect to the internet.", {
-        headers: { "Content-Type": "text/html" }
-      });
-    })
+self.addEventListener('fetch', e => {
+  e.respondWith(
+    caches.match(e.request).then(res => res || fetch(e.request))
   );
 });
