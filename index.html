@@ -3,186 +3,183 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Offline Customer Manager</title>
+  <title>Customer Manager</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#121212" />
+  <link rel="icon" href="Icon-192.png">
   <style>
-    body { font-family: Arial; margin: 0; padding: 20px; background: #f5f5f5; }
-    h2 { margin-top: 0; }
-    .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
-    input, button, select { margin: 5px 0; padding: 8px; width: 100%; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
+    body { font-family: sans-serif; margin: 0; padding: 0; background: #121212; color: white; }
+    .container { padding: 20px; }
     .hidden { display: none; }
+    input, button, select, textarea { margin: 5px; padding: 10px; }
+    .dark { background: #121212; color: white; }
+    .light { background: white; color: black; }
+    .card { background: #1f1f1f; padding: 10px; margin: 10px 0; border-radius: 10px; box-shadow: 0 0 10px #00000070; }
   </style>
 </head>
 <body>
-<div class="container" id="loginScreen">
-  <h2>Admin Login</h2>
-  <input type="password" id="adminPass" placeholder="Enter Password" />
-  <button onclick="checkLogin()">Login</button>
-</div>
+  <div id="login">
+    <div class="container">
+      <h2>Login</h2>
+      <input type="password" id="passwordInput" placeholder="Enter Password" />
+      <button onclick="login()">Login</button>
+    </div>
+  </div>
 
-<div class="container hidden" id="mainApp">
-  <h2>Customer Credit Manager</h2>
-  <form id="customerForm">
-    <input type="text" id="name" placeholder="Customer Name" required />
-    <input type="text" id="product" placeholder="Product Bought" required />
-    <input type="number" id="amount" placeholder="Amount Owed" required />
-    <input type="date" id="date" required />
-    <button type="submit">Add Customer</button>
-  </form>
+  <div id="app" class="hidden">
+    <div class="container">
+      <h2>Customer Manager</h2>
+      <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
+      <div>
+        <input id="name" placeholder="Customer Name" />
+        <input id="credit" type="number" placeholder="Credit Amount" />
+        <textarea id="notes" placeholder="Notes (optional)"></textarea>
+        <button onclick="addCustomer()">Add/Update</button>
+        <button onclick="exportJSON()">Export JSON</button>
+        <input type="file" id="importFile" onchange="importJSON()" />
+        <button onclick="exportPDF()">Export PDF</button>
+        <input type="text" id="search" oninput="renderCustomers()" placeholder="Search by name" />
+        <input type="month" id="monthFilter" onchange="renderCustomers()" />
+        <button onclick="clearFilter()">Clear Filters</button>
+      </div>
 
-  <input type="text" id="search" placeholder="Search by name or product" />
-  <input type="month" id="filterMonth" />
-  <button onclick="exportJSON()">Export JSON</button>
-  <button onclick="exportPDF()">Export PDF</button>
-  <button onclick="clearAll()">Clear All</button>
+      <div id="dashboard">
+        <p>Total Customers: <span id="totalCustomers">0</span></p>
+        <p>Total Credit: ₹<span id="totalCredit">0</span></p>
+        <p>This Month's Credit: ₹<span id="monthCredit">0</span></p>
+      </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>ID(s)</th>
-        <th>Name</th>
-        <th>Product(s)</th>
-        <th>Total Amount</th>
-        <th>Date(s)</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody id="customerTableBody"></tbody>
-  </table>
-</div>
+      <div id="customers"></div>
+    </div>
+  </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script>
-  const password = "HitoHitonomi123";
-  const loginScreen = document.getElementById('loginScreen');
-  const mainApp = document.getElementById('mainApp');
+  <script>
+    const correctPassword = "HitoHitonomi123";
 
-  function checkLogin() {
-    const pass = document.getElementById('adminPass').value;
-    if (pass === password) {
-      loginScreen.classList.add('hidden');
-      mainApp.classList.remove('hidden');
-      displayCustomers();
-    } else {
-      alert("Incorrect password");
-    }
-  }
-
-  let customers = JSON.parse(localStorage.getItem('customers') || "[]");
-
-  document.getElementById('customerForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const name = document.getElementById('name').value.trim();
-    const product = document.getElementById('product').value.trim();
-    const amount = parseFloat(document.getElementById('amount').value);
-    const date = document.getElementById('date').value;
-
-    if (name && product && !isNaN(amount) && date) {
-      customers.push({
-        id: Date.now(),
-        name,
-        product,
-        amountOwed: amount,
-        date
-      });
-      localStorage.setItem('customers', JSON.stringify(customers));
-      this.reset();
-      displayCustomers();
-    }
-  });
-
-  function displayCustomers(customerList = customers) {
-    const tbody = document.getElementById('customerTableBody');
-    tbody.innerHTML = "";
-
-    if (customerList.length === 0) {
-      tbody.innerHTML = "<tr><td colspan='6'>No customers found.</td></tr>";
-      return;
-    }
-
-    const grouped = {};
-
-    customerList.forEach(c => {
-      const key = c.name.toLowerCase();
-      if (!grouped[key]) {
-        grouped[key] = {
-          name: c.name,
-          totalAmount: 0,
-          products: [],
-          dates: [],
-          ids: []
-        };
+    function login() {
+      const input = document.getElementById("passwordInput").value.trim();
+      if (input === correctPassword) {
+        document.getElementById("login").classList.add("hidden");
+        document.getElementById("app").classList.remove("hidden");
+        renderCustomers();
+        checkBackupReminder();
+      } else {
+        alert("Wrong Password");
       }
-      grouped[key].totalAmount += c.amountOwed;
-      grouped[key].products.push(c.product);
-      grouped[key].dates.push(c.date);
-      grouped[key].ids.push(c.id);
-    });
-
-    Object.values(grouped).forEach(group => {
-      const row = tbody.insertRow();
-      row.innerHTML = `
-        <td>${group.ids.join(", ")}</td>
-        <td>${group.name}</td>
-        <td>${group.products.join(", ")}</td>
-        <td>₹${group.totalAmount.toFixed(2)}</td>
-        <td>${group.dates.join(", ")}</td>
-        <td>
-          <button onclick="alert('Use search to edit individual entries.')">Edit</button>
-          <button onclick="alert('Use search to delete individual entries.')">Delete</button>
-        </td>
-      `;
-    });
-  }
-
-  function exportJSON() {
-    const blob = new Blob([JSON.stringify(customers, null, 2)], {type: "application/json"});
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "customers.json";
-    link.click();
-  }
-
-  function exportPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    doc.setFontSize(12);
-    doc.text("Customer Credit Report", 10, 10);
-
-    let y = 20;
-    customers.forEach(c => {
-      doc.text(`Name: ${c.name} | Product: ${c.product} | ₹${c.amountOwed} | Date: ${c.date}`, 10, y);
-      y += 8;
-      if (y > 270) { doc.addPage(); y = 20; }
-    });
-
-    doc.save("Customer_Report.pdf");
-  }
-
-  document.getElementById("search").addEventListener("input", function () {
-    const value = this.value.toLowerCase();
-    const filtered = customers.filter(c =>
-      c.name.toLowerCase().includes(value) ||
-      c.product.toLowerCase().includes(value)
-    );
-    displayCustomers(filtered);
-  });
-
-  document.getElementById("filterMonth").addEventListener("change", function () {
-    const selectedMonth = this.value;
-    const filtered = customers.filter(c => c.date.startsWith(selectedMonth));
-    displayCustomers(filtered);
-  });
-
-  function clearAll() {
-    if (confirm("Clear all customer data?")) {
-      localStorage.removeItem("customers");
-      customers = [];
-      displayCustomers();
     }
-  }
 
-</script>
+    function toggleDarkMode() {
+      document.body.classList.toggle("light");
+    }
+
+    function getCustomers() {
+      return JSON.parse(localStorage.getItem("customers") || "[]");
+    }
+
+    function saveCustomers(data) {
+      localStorage.setItem("customers", JSON.stringify(data));
+      localStorage.setItem("lastBackup", Date.now());
+    }
+
+    function addCustomer() {
+      const name = document.getElementById("name").value.trim();
+      const credit = parseFloat(document.getElementById("credit").value);
+      const notes = document.getElementById("notes").value.trim();
+      if (!name || isNaN(credit)) return alert("Invalid data");
+      const customers = getCustomers();
+      const today = new Date().toISOString().split("T")[0];
+      const existing = customers.find(c => c.name.toLowerCase() === name.toLowerCase());
+      if (existing) {
+        existing.credit += credit;
+        existing.notes = notes;
+        existing.date = today;
+      } else {
+        customers.push({ name, credit, notes, date: today });
+      }
+      saveCustomers(customers);
+      renderCustomers();
+    }
+
+    function deleteCustomer(index) {
+      const customers = getCustomers();
+      customers.splice(index, 1);
+      saveCustomers(customers);
+      renderCustomers();
+    }
+
+    function renderCustomers() {
+      const customers = getCustomers();
+      const search = document.getElementById("search").value.toLowerCase();
+      const month = document.getElementById("monthFilter").value;
+      let filtered = customers.filter(c => c.name.toLowerCase().includes(search));
+      if (month) filtered = filtered.filter(c => c.date.startsWith(month));
+      const list = document.getElementById("customers");
+      list.innerHTML = "";
+      let totalCredit = 0, monthCredit = 0;
+      filtered.forEach((c, i) => {
+        totalCredit += c.credit;
+        if (month && c.date.startsWith(month)) monthCredit += c.credit;
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <b>${c.name}</b><br/>
+          Credit: ₹${c.credit}<br/>
+          Date: ${c.date}<br/>
+          Notes: ${c.notes || "None"}<br/>
+          <button onclick="deleteCustomer(${i})">Delete</button>
+        `;
+        list.appendChild(div);
+      });
+      document.getElementById("totalCustomers").innerText = filtered.length;
+      document.getElementById("totalCredit").innerText = totalCredit;
+      document.getElementById("monthCredit").innerText = monthCredit;
+    }
+
+    function exportJSON() {
+      const blob = new Blob([JSON.stringify(getCustomers())], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "customers.json";
+      link.click();
+    }
+
+    function importJSON() {
+      const file = document.getElementById("importFile").files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const data = JSON.parse(reader.result);
+        saveCustomers(data);
+        renderCustomers();
+      };
+      reader.readAsText(file);
+    }
+
+    function exportPDF() {
+      const list = document.getElementById("customers").innerText;
+      const blob = new Blob([list], { type: "application/pdf" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "customers.pdf";
+      link.click();
+    }
+
+    function checkBackupReminder() {
+      const last = parseInt(localStorage.getItem("lastBackup") || "0");
+      if (Date.now() - last > 7 * 24 * 60 * 60 * 1000) {
+        alert("Reminder: Please backup your data!");
+      }
+    }
+
+    function clearFilter() {
+      document.getElementById("monthFilter").value = "";
+      document.getElementById("search").value = "";
+      renderCustomers();
+    }
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js");
+    }
+  </script>
 </body>
 </html>
