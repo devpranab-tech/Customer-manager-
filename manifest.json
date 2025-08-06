@@ -1,18 +1,19 @@
 
+{
   "name": "Customer Manager",
-  "short_name": "CustomerMgr",
-  "start_url": "index.html",
+  "short_name": "CustManager",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#121212",
   "theme_color": "#121212",
   "icons": [
     {
-      "src": "Icon-192.png",
+      "src": "./Icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "Icon-512.png",
+      "src": "./Icon_512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
