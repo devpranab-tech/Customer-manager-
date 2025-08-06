@@ -1,13 +1,24 @@
-self.addEventListener("install", e => {
-  e.waitUntil(
-    caches.open("customer-manager").then(cache => {
-      return cache.addAll(["index.html", "app.js", "manifest.json", "Icon-192.png", "Icon-512.png"]);
+const CACHE_NAME = 'customer-manager-cache-v1';
+const FILES_TO_CACHE = [
+  './',
+  './index.html',
+  './manifest.json',
+  './Icon-192.png',
+  './Icon_512.png'
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(FILES_TO_CACHE);
     })
   );
 });
 
-self.addEventListener("fetch", e => {
-  e.respondWith(
-    caches.match(e.request).then(response => response || fetch(e.request))
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request).then(response => {
+      return response || fetch(event.request);
+    })
   );
 });
