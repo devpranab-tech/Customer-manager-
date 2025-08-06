@@ -2,49 +2,191 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Customer Manager</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#121212" />
-  <link rel="icon" href="Icon-192.png">
+  <link rel="icon" href="Icon-192.png" />
   <style>
-    body { font-family: Arial; background: #121212; color: white; margin: 0; padding: 10px; }
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background-color: #121212;
+      color: white;
+    }
+    .dark-mode {
+      background-color: #ffffff;
+      color: #000000;
+    }
+    input, button, textarea {
+      display: block;
+      margin: 0.5rem 0;
+      padding: 0.5rem;
+      width: 100%;
+    }
     .hidden { display: none; }
-    .dark-mode { background: #121212; color: white; }
-    input, button, textarea, select { margin: 5px; padding: 8px; }
-    .customer-card { border: 1px solid #444; margin: 5px 0; padding: 10px; border-radius: 10px; background: #1e1e1e; }
+    .customer {
+      border: 1px solid gray;
+      padding: 1rem;
+      margin: 0.5rem 0;
+    }
+    .customer button {
+      background-color: #ff4d4d;
+      color: white;
+      border: none;
+      margin-top: 0.5rem;
+      padding: 0.4rem 0.6rem;
+      cursor: pointer;
+    }
+    .customer button:hover {
+      background-color: #ff1a1a;
+    }
   </style>
 </head>
 <body>
-  <div id="login-section">
-    <h2>Login</h2>
-    <input type="password" id="password" placeholder="Enter Password" />
-    <button onclick="checkLogin()">Login</button>
+  <div id="login">
+    <h2>Admin Login</h2>
+    <input type="password" id="adminPassword" placeholder="Enter Password" />
+    <button onclick="checkPassword()">Login</button>
   </div>
 
   <div id="app" class="hidden">
-    <h2>Customer Manager</h2>
-    <button onclick="toggleDarkMode()">🌙 Toggle Dark Mode</button>
-    <br><br>
+    <h1>Customer Manager</h1>
+    <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
 
-    <div>
-      <input id="name" placeholder="Customer Name" />
-      <input id="phone" placeholder="Phone Number" />
-      <input type="number" id="credit" placeholder="Credit Amount" />
-      <textarea id="notes" placeholder="Notes (optional)"></textarea>
-      <button onclick="addCustomer()">Add/Update Customer</button>
-    </div>
+    <input type="text" id="name" placeholder="Customer Name" />
+    <input type="number" id="credit" placeholder="Credit Amount" />
+    <textarea id="notes" placeholder="Notes (optional)"></textarea>
+    <button onclick="addCustomer()">Add/Update Customer</button>
 
-    <hr>
-    <input id="search" placeholder="Search by name or date..." oninput="searchCustomers()" />
-    <button onclick="exportJSON()">📤 Export JSON</button>
-    <input type="file" id="fileInput" onchange="importJSON()" />
-    <button onclick="exportPDF()">📄 Export PDF</button>
+    <input type="text" id="search" placeholder="Search by name/date..." oninput="renderCustomers()" />
+    <button onclick="exportJSON()">Export JSON</button>
+    <input type="file" onchange="importJSON(event)" />
 
-    <div id="dashboard"></div>
-    <div id="customer-list"></div>
+    <div id="customerList"></div>
   </div>
 
-  <script src="app.js"></script>
+  <script>
+    const correctHash = "a6bedd4044a7d4ea6cebe00321277f220c721c6c01624da79e3f9de018171b48"; // SHA256 of HitoHitonomi123
+
+    function checkPassword() {
+      const input = document.getElementById("adminPassword").value;
+      crypto.subtle.digest("SHA-256", new TextEncoder().encode(input)).then(hashBuffer => {
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        if (hashHex === correctHash) {
+          document.getElementById("login").classList.add("hidden");
+          document.getElementById("app").classList.remove("hidden");
+          checkBackupAlert();
+          renderCustomers();
+        } else {
+          alert("Incorrect Password");
+        }
+      });
+    }
+
+    function getData() {
+      return JSON.parse(localStorage.getItem("customers") || "[]");
+    }
+
+    function saveData(data) {
+      localStorage.setItem("customers", JSON.stringify(data));
+      localStorage.setItem("lastBackup", Date.now());
+    }
+
+    function addCustomer() {
+      let name = document.getElementById("name").value.trim();
+      let credit = parseFloat(document.getElementById("credit").value);
+      let notes = document.getElementById("notes").value;
+      if (!name || isNaN(credit)) return alert("Enter valid name and credit");
+
+      let data = getData();
+      let existing = data.find(c => c.name === name);
+      if (existing) {
+        existing.credit += credit;
+        if (notes) existing.notes += "\n" + notes;
+        existing.date = new Date().toLocaleString();
+      } else {
+        data.push({ name, credit, notes, date: new Date().toLocaleString() });
+      }
+      saveData(data);
+      renderCustomers();
+      document.getElementById("name").value = "";
+      document.getElementById("credit").value = "";
+      document.getElementById("notes").value = "";
+    }
+
+    function renderCustomers() {
+      const filter = document.getElementById("search").value.toLowerCase();
+      const container = document.getElementById("customerList");
+      const data = getData();
+      container.innerHTML = "";
+      data.filter(c => c.name.toLowerCase().includes(filter) || c.date.includes(filter)).forEach(c => {
+        container.innerHTML += `
+          <div class="customer">
+            <strong>${c.name}</strong><br>
+            Credit: ₹${c.credit.toFixed(2)}<br>
+            Date: ${c.date}<br>
+            Notes: <pre>${c.notes || ''}</pre>
+            <button onclick="deleteCustomer('${c.name.replace(/'/g, "\\'")}')">Delete</button>
+          </div>
+        `;
+      });
+    }
+
+    function deleteCustomer(name) {
+      if (!confirm(`Are you sure you want to delete ${name}?`)) return;
+      let data = getData();
+      data = data.filter(c => c.name !== name);
+      saveData(data);
+      renderCustomers();
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark-mode");
+    }
+
+    function exportJSON() {
+      const blob = new Blob([JSON.stringify(getData(), null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "customers.json";
+      a.click();
+    }
+
+    function importJSON(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        try {
+          const newData = JSON.parse(event.target.result);
+          if (Array.isArray(newData)) {
+            saveData(newData);
+            renderCustomers();
+          } else {
+            alert("Invalid JSON");
+          }
+        } catch (err) {
+          alert("Error parsing JSON");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function checkBackupAlert() {
+      const last = parseInt(localStorage.getItem("lastBackup") || 0);
+      const now = Date.now();
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      if (now - last > sevenDays) {
+        alert("Reminder: Please export/backup your customer data.");
+      }
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+  </script>
 </body>
 </html>
